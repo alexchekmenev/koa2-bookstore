@@ -5,12 +5,12 @@ const moment = require('moment-timezone');
 const config = require('../config');
 
 const TIMEZONE = config.get('timezone');
-console.log('timezone', TIMEZONE);
 
 module.exports = {
     addBook,
     updateBook,
-    getById
+    getById,
+    getBooks
 };
 
 async function addBook(book) {
@@ -55,17 +55,48 @@ async function getById(bookId) {
     if (!rows[0]) {
         return null;
     }
-    return rows[0]; // TODO: add author_ids
+    return {
+        book_id: +bookId,
+        title: rows[0].title,
+        description: rows[0].description,
+        image_id: rows[0].image_id,
+        date: rows[0].date,
+        author_ids: await getBookAuthorIds(bookId)
+    };
 }
 
 async function getBookAuthorIds(bookId) {
-    // TODO
+    const sql = `SELECT * FROM book_author WHERE book_id=${bookId};`;
+    const [rows] = await getPool().query(sql);
+    const authorIds = rows.reduce((prev, row) => {
+        prev.push(row.author_id);
+        return prev;
+    }, []);
+    return authorIds;
 }
 
 async function setBookAuthorIds(bookId, authorIds) {
     // TODO
 }
 
-async function getBooks(filters, sorting, offset, limit) {
-    // TODO add author_ids
+async function getBooks(filter, sorting, offset, limit) {
+    const sql = `SELECT b.*, 
+    GROUP_CONCAT(DISTINCT a.name ORDER BY a.author_id ASC SEPARATOR ',') AS authors,
+    GROUP_CONCAT(DISTINCT a.author_id ORDER BY a.author_id ASC SEPARATOR ',') AS author_ids
+    FROM book b 
+    INNER JOIN book_author ba USING (book_id)
+    INNER JOIN author a USING (author_id)
+    GROUP BY b.book_id LIMIT ${offset}, ${limit};`;
+    const [rows] = await getPool().query(sql);
+    return rows.map(row => {
+        return {
+            book_id: row.book_id,
+            title: row.title,
+            description: row.description,
+            image_id: row.image_id,
+            date: row.date,
+            authors: row.authors,
+            author_ids: row.author_ids.split(',').map(id => +id)
+        }
+    });
 }

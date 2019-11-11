@@ -4,7 +4,7 @@ const router = require('koa-router')();
 const koaBody = require('koa-body');
 const path = require('path');
 const {addImage} = require('../utils/images');
-const {getById, addBook, updateBook} = require('../utils/books');
+const {getById, addBook, updateBook, getBooks} = require('../utils/books');
 
 router.prefix('/books');
 
@@ -84,8 +84,12 @@ router.get('/:book_id', async (ctx, next) => {
     ctx.body = ctx.book;
 });
 
-router.get('/', (ctx, next) => {
-    ctx.body = '';
+router.get('/', async (ctx, next) => {
+    const filter = ctx.request.query.filter ? JSON.parse(ctx.request.query.filter) : null;
+    const sorting = ctx.request.query.sorting ? JSON.parse(ctx.request.query.sorting) : null;
+    const offset = ctx.request.query.offset ? +ctx.request.query.offset : 0;
+    const limit = ctx.request.query.limit ? +ctx.request.query.offset : 10;
+    ctx.body = await getBooks(filter, sorting, offset, limit);
 });
 
 module.exports = router;
